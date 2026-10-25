@@ -1,64 +1,98 @@
+
 #![no_std]
 #![no_main]
-#![deny(
-    clippy::mem_forget,
-    reason = "mem::forget is generally not safe to do with esp_hal types, especially those \
-    holding buffers for the duration of a data transfer."
-)]
-#![deny(clippy::large_stack_frames)]
 
-use esp_hal::clock::CpuClock;
-use esp_hal::main;
-use esp_hal::time::{Duration, Instant};
-use log::{error, info};
+use esp_hal::{
+    i2c::master::{Config as I2cConfig, I2c},
+    main,
+    time::Rate,
+};
+
+use embedded_graphics::{
+    mono_font::{ascii::FONT_6X10, MonoTextStyle},
+    pixelcolor::BinaryColor,
+    prelude::*,
+    text::{Baseline, Text},
+};
+
+use ssd1306::{
+    prelude::*,
+    I2CDisplayInterface,
+    Ssd1306,
+};
 
 #[panic_handler]
-fn panic(panic_info: &core::panic::PanicInfo) -> ! {
-    error!("{}", panic_info);
-    loop {}
+fn panic(_: &core::panic::PanicInfo) -> ! {
+    esp_hal::system::software_reset()
 }
 
-extern crate alloc;
-
-// This creates a default app-descriptor required by the esp-idf bootloader.
-// For more information see: <https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/system/app_image_format.html#application-description>
-esp_bootloader_esp_idf::esp_app_desc!();
-
-#[allow(
-    clippy::large_stack_frames,
-    reason = "it's not unusual to allocate larger buffers etc. in main"
-)]
 #[main]
 fn main() -> ! {
-    // generator version: 1.4.0
-    // generator parameters: -o esp32s3 -o esp32s3-wroom-1 -o alloc -o stack-smashing-protection -o log -o esp
+    let peripherals = esp_hal::init(
+        esp_hal::Config::default()
+    );
 
-    esp_println::logger::init_logger_from_env();
+    // I2C mit 100 kHz init
+    let i2c = I2c::new(
+        peripherals.I2C0,
+        I2cConfig::default()
+            .with_frequency(Rate::from_khz(100)),
+    )
+    .unwrap()
+    .with_sda(peripherals.GPIO8)
+    .with_scl(peripherals.GPIO9);
 
-    let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
-    let peripherals = esp_hal::init(config);
+    // SSD1306 at0x3C if its not working try 0x3D 
+    let interface =
+        I2CDisplayInterface::new_custom_address(
+            i2c, 0x3C
+        );
 
-    // The following pins are used to bootstrap the chip. They are available
-    // for use, but check the datasheet of the module for more information on them.
-    // - GPIO0
-    // - GPIO3
-    // - GPIO45
-    // - GPIO46
-    // These GPIO pins are in use by some feature of the module and should not be used.
-    let _gpio27 = peripherals.GPIO27;
-    let _gpio28 = peripherals.GPIO28;
-    let _gpio29 = peripherals.GPIO29;
-    let _gpio30 = peripherals.GPIO30;
-    let _gpio31 = peripherals.GPIO31;
-    let _gpio32 = peripherals.GPIO32;
+    let mut display = Ssd1306::new(
+        interface,
+        DisplaySize128x64,
+        DisplayRotation::Rotate0,
+    )
+    .into_buffered_graphics_mode();
 
-    esp_alloc::heap_allocator!(#[esp_hal::ram(reclaimed)] size: 73744);
+    display.init().unwrap();
+    display.clear(BinaryColor::Off).unwrap();
+
+    let style = MonoTextStyle::new(
+        &FONT_6X10,
+        BinaryColor::On,
+    );
+
+    Text::with_baseline(
+        "Predictive Maint:",
+        Point::new(0, 0),
+        style,
+        Baseline::Top,
+    )
+    .draw(&mut display)
+    .unwrap();
+
+    Text::with_baseline(
+        "ESP32-S3 / Rust:",
+        Point::new(0, 20),
+        style,
+        Baseline::Top,
+    )
+    .draw(&mut display)
+    .unwrap();
+
+    Text::with_baseline(
+        "Status: READY->",
+        Point::new(0, 40),
+        style,
+        Baseline::Top,
+    )
+    .draw(&mut display)
+    .unwrap();
+
+    display.flush().unwrap();
 
     loop {
-        info!("Hello world!");
-        let delay_start = Instant::now();
-        while delay_start.elapsed() < Duration::from_millis(500) {}
+        core::hint::spin_loop();
     }
-
-    // for inspiration have a look at the examples at https://github.com/esp-rs/esp-hal/tree/esp-hal-v1.2.2/examples
 }
