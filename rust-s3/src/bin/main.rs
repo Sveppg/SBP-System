@@ -1,19 +1,17 @@
 
-#![no_std]  
+#![no_std]
 #![no_main]
 
-#[path = "disp/disp.rs"]
-mod display;
+use esp_backtrace as _;
+use rust_s3::display::show_startup;
 
-//
-// Config for I2C connection to display
-//
 use esp_hal::{
     i2c::master::{Config as I2cConfig, I2c},
     main,
     time::Rate,
 };
-
+//APD for bootloader
+esp_bootloader_esp_idf::esp_app_desc!();
 #[main]
 fn main() -> ! {
     let peripherals = esp_hal::init(
@@ -29,8 +27,7 @@ fn main() -> ! {
     .with_sda(peripherals.GPIO8)
     .with_scl(peripherals.GPIO9);
 
-    // Displaymodul aufrufen
-    display::show_startup(&mut i2c);
+    show_startup(&mut i2c);
 
     loop {
         core::hint::spin_loop();
