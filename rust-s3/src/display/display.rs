@@ -20,7 +20,7 @@ use ssd1306::{
 pub fn show_startup(i2c: &mut I2c<'_, Blocking>) {
     let interface =
         I2CDisplayInterface::new_custom_address(
-            i2c, 0x3C // try 0x3D if doesnt work for esp32-s3 
+            i2c, 0x3C // try 0x3D if doesnt work for esp32-s3/c3-> 0xD2
         );
 
     let mut display = Ssd1306::new(
