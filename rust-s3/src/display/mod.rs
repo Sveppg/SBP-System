@@ -1,3 +1,3 @@
 mod display;
 
-pub use display::show_startup;
+pub use display::OledDisplay;

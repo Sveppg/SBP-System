@@ -16,8 +16,9 @@ fn sample_to_float(raw: i32) -> f32 {
     let sample = raw >> 14;
     sample as f32 / 131_072.0
 }
+pub fn run<F>(i2s_rx: I2sRx<'_, Blocking>, mut on_rms: F,) -> !
+where F: FnMut(f32, f32),{
 
-pub fn run(i2s_rx: I2sRx<'_, Blocking>) -> ! {
     // 16 KiB DMA-Ringpuffer
     let rx_buffer =
         dma_rx_stream_buffer!(16_384, 1024);
@@ -64,23 +65,26 @@ pub fn run(i2s_rx: I2sRx<'_, Blocking>) -> ! {
             sum_right += right * right;
             sample_count += 1;
         }
+    if sample_count >= SAMPLE_RATE {
+        let n = sample_count as f32;
 
+        let rms_left = libm::sqrtf(sum_left / n);
+        let rms_right = libm::sqrtf(sum_right / n);
+
+        esp_println::println!(
+            "RMS L: {:.6} | RMS R: {:.6}",
+            rms_left,
+            rms_right
+        );
+
+        // Messwerte an das Hauptprogramm senden
+        on_rms(rms_left, rms_right);
+
+        sum_left = 0.0;
+        sum_right = 0.0;
+        sample_count = 0;
+    }
         // Einmal pro Sekunde RMS ausgeben
-        if sample_count >= SAMPLE_RATE {
-            let n = sample_count as f32;
 
-            let rms_left = libm::sqrtf(sum_left / n);
-            let rms_right = libm::sqrtf(sum_right / n);
-
-            esp_println::println!(
-                "RMS L: {:.6} | RMS R: {:.6}",
-                rms_left,
-                rms_right
-            );
-
-            sum_left = 0.0;
-            sum_right = 0.0;
-            sample_count = 0;
-        }
     }
 }

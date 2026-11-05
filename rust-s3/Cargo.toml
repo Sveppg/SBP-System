@@ -20,7 +20,7 @@ esp-backtrace = { version = "0.20.0", features = ["esp32s3", "panic-handler", "p
 embedded-graphics = "0.8.1"
 ssd1306 = "0.10.0"
 libm = "0.2"
-
+heapless = "0.8"
 
 # For fine tuning these settings, please refer to https://doc.rust-lang.org/cargo/reference/profiles.html
 [profile.dev]
