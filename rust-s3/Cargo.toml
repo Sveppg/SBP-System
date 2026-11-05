@@ -10,7 +10,6 @@ path = "./src/bin/main.rs"
 
 [dependencies]
 esp-hal = { version = "~1.2.2", features = ["esp32s3", "log-04"] }
-
 esp-bootloader-esp-idf = { version = "0.6.0", features = ["esp32s3", "log-04"] }
 log                    = "0.4.27"
 
@@ -20,6 +19,7 @@ esp-println      = { version = "0.18.0", features = ["esp32s3", "log-04"] }
 esp-backtrace = { version = "0.20.0", features = ["esp32s3", "panic-handler", "println"] }
 embedded-graphics = "0.8.1"
 ssd1306 = "0.10.0"
+libm = "0.2"
 
 
 # For fine tuning these settings, please refer to https://doc.rust-lang.org/cargo/reference/profiles.html

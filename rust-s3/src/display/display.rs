@@ -39,7 +39,7 @@ pub fn show_startup(i2c: &mut I2c<'_, Blocking>) {
     );
 
     Text::with_baseline(
-        "Predictive Maint.",
+        "Predictive Maintanance",
         Point::new(0, 0),
         style,
         Baseline::Top,
