@@ -107,4 +107,34 @@ impl<'d> OledDisplay<'d> {
             );
         }
     }
+
+    pub fn show_measurements(&mut self,mic_rms: f32,vib_rms: f32,vib_pp: u16,) {
+        let mut mic: String<32> = String::new();
+        let mut vib: String<32> = String::new();
+        let mut peak: String<32> = String::new();
+
+        write!(&mut mic, "MIC: {:.5}", mic_rms)
+            .unwrap();
+
+        write!(&mut vib, "VIB: {:.2}", vib_rms)
+            .unwrap();
+
+        write!(&mut peak, "PEAK: {}", vib_pp)
+            .unwrap();
+
+        self.inner.clear_buffer();
+
+        self.draw_line("Predictive Maint.", 0);
+        self.draw_line("Sensors: ACTIVE", 12);
+        self.draw_line(mic.as_str(), 24);
+        self.draw_line(vib.as_str(), 36);
+        self.draw_line(peak.as_str(), 48);
+
+        if self.inner.flush().is_err() {
+            esp_println::println!(
+                "OLED Update fehlgeschlagen"
+            );
+        }
+    }
 }
+

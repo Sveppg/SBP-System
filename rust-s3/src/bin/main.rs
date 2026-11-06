@@ -9,6 +9,8 @@ use rust_s3::{
     sensors::microphone,
 };
 
+use rust_s3::sensors::vibration::VibrationSensor;
+
 use esp_hal::{
     i2c::master::{Config as I2cConfig, I2c},
     i2s::master::{
@@ -25,8 +27,7 @@ esp_bootloader_esp_idf::esp_app_desc!();
 
 #[main]
 fn main() -> ! {
-    let peripherals =
-        esp_hal::init(esp_hal::Config::default());
+    let peripherals = esp_hal::init(esp_hal::Config::default());
 
     // ===================================
     // OLED initialisieren
@@ -45,6 +46,12 @@ fn main() -> ! {
 
     display.show_startup();
 
+    // Vibrationssensor initialisieren
+    let mut vibration = VibrationSensor::new(
+        peripherals.ADC1,
+        peripherals.GPIO4,
+    );
+    
     // ===================================
     // I2S Mikrofon initialisieren
     // ===================================
@@ -71,8 +78,24 @@ fn main() -> ! {
     // ===================================
     // Mikrofon starten + Display updaten
     // ===================================
+    
+    microphone::run(i2s_rx, |left, _right| {
+        // Vibrationssensor auslesen
+        let vib = vibration.measure_burst();
 
-    microphone::run(i2s_rx, |left, right| {
-        display.show_rms(left, right);
-    });
+        // Messwerte im Terminal ausgeben
+        esp_println::println!(
+            "MIC RMS: {:.5} | VIB RMS: {:.2} | VIB P-P: {}",
+            left,
+            vib.rms_ac,
+            vib.peak_to_peak,
+        );
+
+        // Display aktualisieren
+        display.show_measurements(
+            left,
+            vib.rms_ac,
+            vib.peak_to_peak,
+        );
+});
 }
