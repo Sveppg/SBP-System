@@ -1,6 +1,13 @@
 # SBP-System
 **Sound-Based Predictive Maintenance System**
 
+### Issues:
+
+### ToDos:
+- [] Logging for sensor data, especially audio data
+- [] reference data sets
+
+
 ## Project Overview
 
 SBP-System is an embedded condition-monitoring and predictive-maintenance research project developed as part of a Bachelor's thesis in Technical Computer Science, specializing in Embedded Systems.
@@ -97,3 +104,5 @@ This project is initially intended as a proof-of-concept embedded diagnostic sys
 A successful prototype may serve as the foundation for a future workshop diagnostic tool. However, reliable commercial diagnosis would require further validation across multiple engines and operating conditions.
 
 The system is not intended to replace prescribed mechanical valve-clearance inspections during the research phase.
+
+
