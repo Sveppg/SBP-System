@@ -136,5 +136,17 @@ impl<'d> OledDisplay<'d> {
             );
         }
     }
+    pub fn show_recorder_status(&mut self, status: &str) {
+        self.inner.clear_buffer();
+
+        self.draw_line("Predictive Maint.", 0);
+        self.draw_line("USB Audio / 32 kHz", 20);
+        self.draw_line(status, 40);
+
+        let _ = self.inner.flush();
+}
+
+
+
 }
 

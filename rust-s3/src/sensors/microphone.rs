@@ -1,3 +1,5 @@
+//! SPH0645: streaming capture of LEFT I2S slot, 32 kHz, 32-bit slots.
+//! Tested against the documented esp-hal 1.2.x API, NOT yet hardware tested.
 
 use esp_hal::{
     dma_rx_stream_buffer,
@@ -5,86 +7,92 @@ use esp_hal::{
     Blocking,
 };
 
-// SPH0645: 16 kHz, 2 x 32 Bit pro Frame
-const SAMPLE_RATE: usize = 16_000;
-const CHUNK_SIZE: usize = 1024;
-const BYTES_PER_FRAME: usize = 8;
+pub const SAMPLE_RATE: u32 = 32_000;
+pub const SAMPLES_PER_BLOCK: usize = 512;
 
-// Ein 18-Bit-Sample ist im 32-Bit-Slot
-// linksbündig angeordnet.
-fn sample_to_float(raw: i32) -> f32 {
-    let sample = raw >> 14;
-    sample as f32 / 131_072.0
+const BYTES_PER_STEREO_FRAME: usize = 8;
+const DMA_BYTES: usize = 32_768;
+const RX_BLOCK_BYTES: usize = SAMPLES_PER_BLOCK * BYTES_PER_STEREO_FRAME;
+const MONO_BLOCK_BYTES: usize = SAMPLES_PER_BLOCK * 4;
+
+#[derive(Clone, Copy)]
+pub struct CaptureSummary {
+    pub blocks: u32,
+    pub last_rms: f32,
+    pub high_water_events: u32,
 }
-pub fn run<F>(i2s_rx: I2sRx<'_, Blocking>, mut on_rms: F,) -> !
-where F: FnMut(f32, f32),{
 
-    // 16 KiB DMA-Ringpuffer
-    let rx_buffer =
-        dma_rx_stream_buffer!(16_384, 1024);
+/// Runs the configured mono microphone for `seconds` and calls back once per
+/// 512 samples, with raw little-endian signed 32-bit samples and the AC RMS.
 
+/// IMPORTANT: `near_full` is only a warning that the DMA ring is filling up;
+/// it does NOT prove whether DMA samples have been dropped.
+
+pub fn capture<F>(i2s_rx: I2sRx<'_, Blocking>, seconds: u32, mut on_block: F) -> CaptureSummary
+where
+    F: FnMut(&[u8], f32, bool),
+{
+    let rx_buffer = dma_rx_stream_buffer!(DMA_BYTES, 1024);
     let mut transfer = i2s_rx
         .read(rx_buffer)
         .ok()
-        .expect("I2S DMA konnte nicht starten");
+        .expect("Could not start I2S DMA RX");
 
-    let mut data = [0u8; CHUNK_SIZE];
+    let mut stereo = [0u8; RX_BLOCK_BYTES];
+    let mut mono = [0u8; MONO_BLOCK_BYTES];
 
-    let mut sum_left = 0.0f32;
-    let mut sum_right = 0.0f32;
-    let mut sample_count = 0usize;
 
-    esp_println::println!("Mikrofon gestartet");
+    // 32_000 * 20 is exactly divisible by 512, unlike 1 second alone.
+    let total_samples = (SAMPLE_RATE as u64) * (seconds as u64);
+    assert_eq!(total_samples % SAMPLES_PER_BLOCK as u64, 0);
+    let target_blocks = (total_samples / SAMPLES_PER_BLOCK as u64) as u32;
 
-    loop {
-        if transfer.available_bytes() < CHUNK_SIZE {
+    let mut high_water_events = 0;
+    let mut last_rms = 0.0;
+
+    for _ in 0..target_blocks {
+        let available = loop {
+            let available = transfer.available_bytes();
+            if available >= RX_BLOCK_BYTES {
+                break available;
+            }
             core::hint::spin_loop();
-            continue;
+        };
+
+        let near_full = available >= DMA_BYTES - 2 * RX_BLOCK_BYTES;
+        if near_full {
+            high_water_events += 1;
         }
 
-        let bytes_read = transfer.pop(&mut data);
+        let got = transfer.pop(&mut stereo);
+        assert_eq!(got, RX_BLOCK_BYTES, "I2S DMA short read");
 
-        if bytes_read != CHUNK_SIZE {
-            panic!("Unvollstaendiger Audio-Block");
+        let mut sum = 0.0f32;
+        let mut sum_sq = 0.0f32;
+
+        for (frame, output) in stereo
+            .chunks_exact(BYTES_PER_STEREO_FRAME)
+            .zip(mono.chunks_exact_mut(4))
+        {
+            // SEL=GND: microphone drives the left slot; the right slot is ignored.
+            output.copy_from_slice(&frame[0..4]);
+            let raw = i32::from_le_bytes([frame[0], frame[1], frame[2], frame[3]]);
+            let x = raw as f32 / 2_147_483_648.0f32;
+            sum += x;
+            sum_sq += x * x;
         }
 
-        // 8 Byte = 32 Bit links + 32 Bit rechts
-        for frame in data.chunks_exact(BYTES_PER_FRAME) {
-            let left_raw = i32::from_le_bytes([
-                frame[0], frame[1], frame[2], frame[3]
-            ]);
-
-            let right_raw = i32::from_le_bytes([
-                frame[4], frame[5], frame[6], frame[7]
-            ]);
-
-            let left = sample_to_float(left_raw);
-            let right = sample_to_float(right_raw);
-
-            sum_left += left * left;
-            sum_right += right * right;
-            sample_count += 1;
-        }
-    if sample_count >= SAMPLE_RATE {
-        let n = sample_count as f32;
-
-        let rms_left = libm::sqrtf(sum_left / n);
-        let rms_right = libm::sqrtf(sum_right / n);
-
-        esp_println::println!(
-            "RMS L: {:.6} | RMS R: {:.6}",
-            rms_left,
-            rms_right
-        );
-
-        // Messwerte an das Hauptprogramm senden
-        on_rms(rms_left, rms_right);
-
-        sum_left = 0.0;
-        sum_right = 0.0;
-        sample_count = 0;
+        let n = SAMPLES_PER_BLOCK as f32;
+        let mean = sum / n;
+        let variance = (sum_sq / n - mean * mean).max(0.0);
+        last_rms = libm::sqrtf(variance);
+        on_block(&mono, last_rms, near_full);
     }
-        // Einmal pro Sekunde RMS ausgeben
 
+    // Dropping the DMA transfer stops the recording.
+    CaptureSummary {
+        blocks: target_blocks,
+        last_rms,
+        high_water_events,
     }
 }
