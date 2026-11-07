@@ -19,8 +19,20 @@ impl<'d> UsbPcmLogger<'d> {
     /// Host must open the serial port and send ASCII 'S' before DMA starts.
     pub fn wait_for_start(&mut self) {
         loop {
-            if self.usb.read_byte().unwrap() == b'S' {
-                break;
+            match self.usb.read_byte() {
+                Ok(b'S') => {
+                    // Startkommando empfangen
+                    break;
+                }
+
+                Ok(_) => {
+                    // Andere Zeichen ignorieren
+                }
+
+                Err(_) => {
+                    // Noch keine Daten vorhanden
+                    core::hint::spin_loop();
+                }
             }
         }
     }
