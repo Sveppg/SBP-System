@@ -1,5 +1,6 @@
 # SBP-System
 **Sound-Based Predictive Maintenance System**
+<img width="1536" height="2040" alt="SBP Prototype" src="https://github.com/user-attachments/assets/25f7ebc0-e127-4393-9678-6e6e78d08c85" />
 
 ### Issues:
 - recording not working for logging rn...
