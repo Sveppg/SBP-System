@@ -2,7 +2,8 @@
 **Sound-Based Predictive Maintenance System**
 
 ### Issues:
-
+- recording not working for logging rn...
+- logging is only json, will change format asap
 ### ToDos:
 - Logging for sensor data, especially audio data
 - reference data sets
