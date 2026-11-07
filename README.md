@@ -1,7 +1,7 @@
 # SBP-System
 Sound Based Prediction System for Maintenance
 
-###Sensors & Actors:
+### Sensors & Actors:
 - SEN-VIB01
 - SPH9645 I2S Mic
 - VMA438
