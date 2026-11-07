@@ -4,8 +4,8 @@
 ### Issues:
 
 ### ToDos:
-- [] Logging for sensor data, especially audio data
-- [] reference data sets
+-[] Logging for sensor data, especially audio data
+-[] reference data sets
 
 
 ## Project Overview
