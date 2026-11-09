@@ -9,7 +9,7 @@ name = "rust-s3"
 path = "./src/bin/main.rs"
 
 [dependencies]
-esp-hal = { version = "~1.2.2", features = ["esp32s3", "log-04"] }
+esp-hal = { version = "~1.2.2", features = ["esp32s3", "log-04", "unstable"] }
 esp-bootloader-esp-idf = { version = "0.6.0", features = ["esp32s3", "log-04"] }
 log                    = "0.4.27"
 
