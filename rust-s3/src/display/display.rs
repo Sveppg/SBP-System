@@ -144,7 +144,7 @@ impl<'d> OledDisplay<'d> {
         self.draw_line(status, 40);
 
         let _ = self.inner.flush();
-}
+    }
 
 
 
